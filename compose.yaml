@@ -16,8 +16,16 @@
 
 name: watermarks-remover
 
+x-service-hardening: &service-hardening
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
 services:
   wr-core:
+    <<: *service-hardening
     build:
       context: service
       dockerfile: Dockerfile
@@ -25,14 +33,13 @@ services:
     ports:
       - "127.0.0.1:8765:8765"
     environment:
-      # Empty by default (no auth). Set to require `Authorization: Bearer <key>`.
-      WATERMARKS_SERVER_API_KEY: ${WATERMARKS_SERVER_API_KEY:-}
+      WATERMARKS_SERVER_API_KEY: ${WATERMARKS_SERVER_API_KEY:?set WATERMARKS_SERVER_API_KEY in .env}
       # Optional SynthID image scorer sidecar (heavy profile).
       WATERMARKS_SYNTHID_SCORER_URL: ${WATERMARKS_SYNTHID_SCORER_URL:-}
-      WATERMARKS_SYNTHID_SCORER_API_KEY: ${WATERMARKS_SYNTHID_SCORER_API_KEY:-}
+      WATERMARKS_SYNTHID_SCORER_API_KEY: ${WATERMARKS_SYNTHID_SCORER_API_KEY:-${WATERMARKS_SERVER_API_KEY}}
       # Optional SynthID text watermark generator sidecar (harness profile).
       WATERMARKS_SYNTHID_TEXT_URL: ${WATERMARKS_SYNTHID_TEXT_URL:-}
-      WATERMARKS_SYNTHID_TEXT_API_KEY: ${WATERMARKS_SYNTHID_TEXT_API_KEY:-}
+      WATERMARKS_SYNTHID_TEXT_API_KEY: ${WATERMARKS_SYNTHID_TEXT_API_KEY:-${WATERMARKS_SERVER_API_KEY}}
       WATERMARKS_SYNTHID_TEXT_TIMEOUT: ${WATERMARKS_SYNTHID_TEXT_TIMEOUT:-120}
     read_only: true
     tmpfs:
@@ -42,6 +49,7 @@ services:
     restart: unless-stopped
 
   wr-markllm:
+    <<: *service-hardening
     profiles: [harness]
     build:
       context: service
@@ -80,6 +88,7 @@ services:
   # core image. Reach it via WATERMARKS_SYNTHID_TEXT_URL on wr-core (see .env.example)
   # and require the same bearer key on both sides.
   wr-synthid-text:
+    <<: *service-hardening
     profiles: [harness]
     build:
       context: service
@@ -93,7 +102,7 @@ services:
     init: true
     user: "10001:10001"
     environment:
-      WATERMARKS_SYNTHID_TEXT_API_KEY: ${WATERMARKS_SYNTHID_TEXT_API_KEY:-}
+      WATERMARKS_SYNTHID_TEXT_API_KEY: ${WATERMARKS_SYNTHID_TEXT_API_KEY:-${WATERMARKS_SERVER_API_KEY}}
       MARKLLM_DIR: /opt/markllm
       HF_TOKEN: ${HF_TOKEN:-}
       HF_HOME: /home/markllm/.cache/huggingface
@@ -101,6 +110,7 @@ services:
       - markllm-cache:/home/markllm/.cache/huggingface
 
   wr-markdiffusion:
+    <<: *service-hardening
     profiles: [harness]
     build:
       context: service
@@ -119,6 +129,7 @@ services:
       - markdiffusion-cache:/home/markdiffusion/.cache/huggingface
 
   wr-ctrlregen:
+    <<: *service-hardening
     profiles: [heavy]
     build:
       context: service
@@ -139,6 +150,7 @@ services:
       - ctrlregen-cache:/home/remover/.cache/huggingface
 
   wr-synthid:
+    <<: *service-hardening
     profiles: [heavy]
     build:
       context: service
@@ -160,6 +172,7 @@ services:
   # published core image. Reach it via WATERMARKS_SYNTHID_SCORER_URL on
   # wr-core (see .env.example) and require the same bearer key on both sides.
   wr-synthid-score:
+    <<: *service-hardening
     profiles: [heavy]
     build:
       context: service
@@ -173,7 +186,7 @@ services:
     init: true
     user: "10001:10001"
     environment:
-      WATERMARKS_SYNTHID_SCORER_API_KEY: ${WATERMARKS_SYNTHID_SCORER_API_KEY:-}
+      WATERMARKS_SYNTHID_SCORER_API_KEY: ${WATERMARKS_SYNTHID_SCORER_API_KEY:-${WATERMARKS_SERVER_API_KEY}}
       REVERSE_SYNTHID_DIR: /opt/reverse-synthid
     volumes:
       - synthid-cache:/home/scorer/.cache/huggingface

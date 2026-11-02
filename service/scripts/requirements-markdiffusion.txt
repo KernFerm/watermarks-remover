@@ -1,8 +1,24 @@
-# Dependencies for the optional MarkDiffusion image-watermark harness
-# (THU-BPM/MarkDiffusion, Apache-2.0). The package is installed from PyPI at a
-# pinned version; the harness imports it at runtime and it is never bundled.
-#
-# torch is installed separately in setup_markdiffusion.sh with the correct
-# platform index (CUDA or CPU) and satisfies markdiffusion's own
-# torch>=2.4,<2.11 range, so it is intentionally not listed here.
-markdiffusion==1.0.2
+# Patched runtime for the optional MarkDiffusion 1.0.2 harness. Upstream pins
+# torch<2.11 and setuptools<81; both ranges contain published vulnerabilities.
+# Installers therefore install the pinned package with --no-deps and resolve
+# this audited, exact runtime instead.
+setuptools==84.1.0
+torch==2.13.0.*
+torchvision==0.28.0
+numpy==2.4.6
+Pillow==13.0.0
+opencv-python-headless==5.0.0.93
+requests==2.33.0
+tqdm==4.70.1
+scipy==1.17.1
+matplotlib==3.11.1
+diffusers==0.42.1
+transformers==5.22.1
+accelerate==1.15.0
+huggingface_hub==2.4.0
+ujson==5.13.0
+datasets==5.1.0
+sentence-transformers==6.2.0
+joblib==1.5.2
+pandas==2.3.3
+pycryptodome==3.23.0

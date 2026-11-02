@@ -158,11 +158,14 @@ def main() -> int:
     p.add_argument("--api-key", default=API_KEY, help="require this bearer token (default: none)")
     args = p.parse_args()
 
+    API_KEY = args.api_key
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not API_KEY:
+        print("error: a bearer API key is required when binding beyond loopback", file=sys.stderr)
+        return 2
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         print(
             f"warning: binding {args.host} — intended for a trusted network only", file=sys.stderr
         )
-    API_KEY = args.api_key
     print(f"synthid scorer sidecar {VERSION} on http://{args.host}:{args.port}", file=sys.stderr)
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     try:

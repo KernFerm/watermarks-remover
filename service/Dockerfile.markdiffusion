@@ -28,11 +28,13 @@ COPY scripts/requirements-markdiffusion.txt /app/requirements-markdiffusion.txt
 COPY scripts/markdiffusion_harness.py /app/markdiffusion_harness.py
 COPY scripts/common.py /app/common.py
 
-# torch is pinned (with everything else) in requirements-markdiffusion.txt; the
-# CPU index keeps the image small. No GPU wheel index inside the image — CUDA
-# users should run setup_markdiffusion.sh on the host instead.
+# Install the audited CPU baseline explicitly, then install MarkDiffusion
+# without its older dependency constraints so it cannot downgrade torch or
+# setuptools. The remaining runtime is pinned in the requirements file.
 RUN python3 -m pip install --no-cache-dir "pip==26.2.1" \
-    && python3 -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu "torch>=2.4,<2.11" \
+    && python3 -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+        "torch==2.13.0.*" "torchvision==0.28.0" \
+    && python3 -m pip install --no-cache-dir --no-deps "markdiffusion==1.0.2" \
     && python3 -m pip install --no-cache-dir -r /app/requirements-markdiffusion.txt
 
 # Unprivileged runtime user. The harness only reads input files and writes to

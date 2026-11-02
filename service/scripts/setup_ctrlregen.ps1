@@ -175,7 +175,7 @@ if ($cuda) {
     }
     if ($tag) {
         $index = "https://download.pytorch.org/whl/$tag"
-        & $venvPython -m pip install torch torchvision --index-url $index
+        & $venvPython -m pip install 'torch==2.13.0.*' 'torchvision==0.28.0' --index-url $index
         if ($LASTEXITCODE -eq 0) { $torchOk = $true }
         else { Write-Warning "the index $index failed; falling back to the default torch" }
     }
@@ -184,7 +184,7 @@ if ($cuda) {
 }
 
 if (-not $torchOk) {
-    Invoke-Checked 'pip install torch torchvision' { & $venvPython -m pip install torch torchvision }
+    Invoke-Checked 'pip install torch torchvision' { & $venvPython -m pip install 'torch==2.13.0.*' 'torchvision==0.28.0' }
 }
 
 Invoke-Checked 'pip install requirements' { & $venvPython -m pip install -r (Join-Path $ScriptDir 'requirements-ctrlregen.txt') }
@@ -205,7 +205,7 @@ if ($cc -or $cuda) {
             Write-Warning 'NVIDIA GPU detected but torch.cuda.is_available() = False.'
             Write-Warning 'CtrlRegen would run on CPU (very slow) or fail on GPU.'
             Write-Warning 'Reinstall torch and torchvision together from a published index, e.g.:'
-            Write-Warning "  & '$venvPython' -m pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu130"
+            Write-Warning "  & '$venvPython' -m pip install --force-reinstall 'torch==2.13.0.*' 'torchvision==0.28.0' --index-url https://download.pytorch.org/whl/cu130"
             exit 1
         }
         if ($cc) {
@@ -214,7 +214,7 @@ if ($cc -or $cuda) {
                 Write-Warning "the installed torch does NOT include $smTarget - CtrlRegen will fail on GPU."
                 Write-Warning "available archs: $archs"
                 Write-Warning "reinstall from an older index, e.g.:"
-                Write-Warning "  & '$venvPython' -m pip install --force-reinstall torch torchvision --index-url https://download.pytorch.org/whl/cu126"
+                Write-Warning "  & '$venvPython' -m pip install --force-reinstall 'torch==2.13.0.*' 'torchvision==0.28.0' --index-url https://download.pytorch.org/whl/cu126"
             } elseif ($archs) {
                 Write-Host "OK: torch includes $smTarget (archs: $archs)"
             }

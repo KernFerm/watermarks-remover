@@ -60,6 +60,9 @@ SCHEMES = {
 IMAGE_SCHEMES = {"TR", "RI", "ROBIN", "WIND", "SFW", "GS", "GM", "PRC", "SEAL"}
 
 DEFAULT_MODEL = "huanzi05/stable-diffusion-2-1-base"
+# Immutable revision of the default model. Remote custom models must supply an
+# explicit revision too; moving branches are not accepted for model loading.
+DEFAULT_MODEL_REVISION = "f71d7867a2745c420aa93441638b119c85995963"
 
 # Algorithm configs are a few hundred bytes (TR.json/GS.json). Cap well above
 # that so a crafted or accidental huge file is refused before either this script
@@ -122,11 +125,27 @@ def _import_markdiffusion(upstream: Path | None) -> Any:
     return markdiffusion
 
 
-def _load_diffusion(model: str, device: str, offline: bool, size: int):
+def _load_diffusion(
+    model: str,
+    device: str,
+    offline: bool,
+    size: int,
+    revision: str | None = None,
+):
     """Load the Stable Diffusion pipeline and scheduler used by the harness."""
     if offline:
         os.environ.setdefault("HF_HUB_OFFLINE", "1")
-    load_kwargs = {"local_files_only": True} if offline else {}
+    local_model = Path(model).expanduser().is_dir()
+    if revision is None and model == DEFAULT_MODEL:
+        revision = DEFAULT_MODEL_REVISION
+    if not local_model and not revision:
+        raise _Unavailable(
+            "remote models must be pinned to an immutable commit with --model-revision"
+        )
+
+    load_kwargs: dict[str, Any] = {"local_files_only": True} if offline else {}
+    if revision:
+        load_kwargs["revision"] = revision
 
     import torch
     from diffusers import DPMSolverMultistepScheduler, StableDiffusionPipeline
@@ -140,6 +159,8 @@ def _load_diffusion(model: str, device: str, offline: bool, size: int):
         scheduler=scheduler,
         torch_dtype=dtype,
         safety_checker=None,
+        trust_remote_code=False,
+        use_safetensors=True,
         **load_kwargs,
     ).to(device)
     return pipe, scheduler
@@ -237,7 +258,9 @@ def _cmd_watermark(args: argparse.Namespace, upstream: Path | None, scheme: str)
         from markdiffusion.utils import DiffusionConfig
         from markdiffusion.watermark import AutoWatermark
 
-        pipe, scheduler = _load_diffusion(args.model, device, args.offline, args.size)
+        pipe, scheduler = _load_diffusion(
+            args.model, device, args.offline, args.size, getattr(args, "model_revision", None)
+        )
         diffusion_config = DiffusionConfig(
             scheduler=scheduler,
             pipe=pipe,
@@ -285,6 +308,8 @@ def _cmd_watermark(args: argparse.Namespace, upstream: Path | None, scheme: str)
         "scheme": scheme,
         "config": config_path,
         "model": args.model,
+        "model_revision": getattr(args, "model_revision", None)
+        or (DEFAULT_MODEL_REVISION if args.model == DEFAULT_MODEL else None),
         "device": device,
         "watermarked_output": wm_out,
         "unwatermarked_output": args.unwatermarked_output,
@@ -313,7 +338,9 @@ def _cmd_detect(args: argparse.Namespace, upstream: Path | None, scheme: str) ->
         from markdiffusion.watermark import AutoWatermark
         from PIL import Image
 
-        pipe, scheduler = _load_diffusion(args.model, device, args.offline, args.size)
+        pipe, scheduler = _load_diffusion(
+            args.model, device, args.offline, args.size, getattr(args, "model_revision", None)
+        )
         diffusion_config = DiffusionConfig(
             scheduler=scheduler,
             pipe=pipe,
@@ -349,6 +376,8 @@ def _cmd_detect(args: argparse.Namespace, upstream: Path | None, scheme: str) ->
         "scheme": scheme,
         "config": config_path,
         "model": args.model,
+        "model_revision": getattr(args, "model_revision", None)
+        or (DEFAULT_MODEL_REVISION if args.model == DEFAULT_MODEL else None),
         "device": device,
         **det,
     }
@@ -375,7 +404,9 @@ def _cmd_purify(args: argparse.Namespace, upstream: Path | None) -> int:
         from markdiffusion.utils import DiffusionConfig
         from PIL import Image
 
-        pipe, scheduler = _load_diffusion(args.model, device, args.offline, args.size)
+        pipe, scheduler = _load_diffusion(
+            args.model, device, args.offline, args.size, getattr(args, "model_revision", None)
+        )
         diffusion_config = DiffusionConfig(
             scheduler=scheduler,
             pipe=pipe,
@@ -404,6 +435,8 @@ def _cmd_purify(args: argparse.Namespace, upstream: Path | None) -> int:
         "available": True,
         "upstream_dir": str(upstream) if upstream else None,
         "model": args.model,
+        "model_revision": getattr(args, "model_revision", None)
+        or (DEFAULT_MODEL_REVISION if args.model == DEFAULT_MODEL else None),
         "device": device,
         "output": args.output,
         "purification_intensity": args.purification_intensity,
@@ -428,6 +461,11 @@ def _add_common(p: argparse.ArgumentParser) -> None:
         "--model",
         default=os.environ.get("MARKDIFFUSION_MODEL", DEFAULT_MODEL),
         help=f"HF Stable Diffusion model (default: $MARKDIFFUSION_MODEL or {DEFAULT_MODEL})",
+    )
+    p.add_argument(
+        "--model-revision",
+        default=os.environ.get("MARKDIFFUSION_MODEL_REVISION"),
+        help="Immutable HF commit for a remote custom model; the bundled default is pinned",
     )
     p.add_argument(
         "--device",

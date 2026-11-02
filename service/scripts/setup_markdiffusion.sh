@@ -10,7 +10,9 @@ set -euo pipefail
 # editable checkout of the upstream repo at a pinned commit instead.
 #
 # torch is installed separately so the right platform wheel index (CUDA or CPU)
-# is used; markdiffusion's own torch range is then already satisfied.
+# is used. MarkDiffusion is installed with --no-deps because its torch<2.11 and
+# setuptools<81 metadata constraints are vulnerable; requirements-markdiffusion
+# supplies the tested patched runtime instead.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_DIR="${MARKDIFFUSION_DIR:-$HOME/markdiffusion}"
@@ -102,31 +104,32 @@ echo "Installing Python dependencies"
 # Pin pip itself (unpinned --upgrade pip was a supply-chain drift point).
 "$DIR/.venv/bin/python" -m pip install --upgrade "pip==26.2.1"
 
-# Install torch with the right platform index before the rest. markdiffusion
-# pins torch>=2.4,<2.11, so this satisfies its range and pip won't re-resolve.
+# Install the patched torch/torchvision pair before the rest.
 if command -v nvidia-smi >/dev/null 2>&1; then
   cuda="$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: \([0-9]*\.[0-9]*\).*/\1/p' | head -1)"
   if [[ -n "$cuda" ]]; then
     tag="cu${cuda/./}"
     index="https://download.pytorch.org/whl/$tag"
     echo "NVIDIA GPU detected (CUDA $cuda); installing torch from $index"
-    "$DIR/.venv/bin/python" -m pip install "torch>=2.4,<2.11" --index-url "$index"
+    "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0" --index-url "$index"
   else
     echo "nvidia-smi present but no CUDA version found; installing default torch"
-    "$DIR/.venv/bin/python" -m pip install "torch>=2.4,<2.11"
+    "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0"
   fi
 else
   echo "No NVIDIA GPU detected; installing default torch (CPU/MPS)"
-  "$DIR/.venv/bin/python" -m pip install "torch>=2.4,<2.11"
+  "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0"
 fi
 
 if [[ "$CHECKOUT" -eq 1 ]]; then
   echo "Installing MarkDiffusion editable checkout"
-  "$DIR/.venv/bin/python" -m pip install -e "$DIR"
+  "$DIR/.venv/bin/python" -m pip install --no-deps -e "$DIR"
 else
   echo "Installing MarkDiffusion $PYPI_VERSION from PyPI"
-  "$DIR/.venv/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-markdiffusion.txt"
+  "$DIR/.venv/bin/python" -m pip install --no-deps "markdiffusion==$PYPI_VERSION"
 fi
+
+"$DIR/.venv/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-markdiffusion.txt"
 
 cat <<EOF
 

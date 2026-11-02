@@ -1691,6 +1691,10 @@ def main() -> int:
     global _DEFAULT_STRATEGY  # noqa: PLW0603 — loaded once at startup
     _DEFAULT_STRATEGY = _load_default_strategy(Path(args.strategy_config))
 
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not API_KEY:
+        eprint("error: a bearer API key is required when binding beyond loopback")
+        return 2
+
     if args.host not in ("127.0.0.1", "localhost", "::1"):
         eprint(f"warning: binding {args.host} — intended for a trusted network only")
     if API_KEY:

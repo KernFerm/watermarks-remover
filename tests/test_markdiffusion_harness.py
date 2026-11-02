@@ -19,8 +19,59 @@ sys.path.insert(0, str(SCRIPTS))
 
 import image_meta
 from image_meta import run_markdiffusion_purify
+from markdiffusion_harness import (
+    DEFAULT_MODEL,
+    DEFAULT_MODEL_REVISION,
+    _load_diffusion,
+    _Unavailable,
+)
 
 HARNESS_SCRIPT = SCRIPTS / "markdiffusion_harness.py"
+
+
+def test_remote_custom_model_requires_immutable_revision() -> None:
+    with pytest.raises(_Unavailable, match="immutable commit"):
+        _load_diffusion("publisher/moving-model", "cpu", False, 512)
+
+
+def test_default_model_is_pinned_and_disables_remote_code(monkeypatch) -> None:
+    calls: dict[str, dict] = {}
+
+    class FakeScheduler:
+        @classmethod
+        def from_pretrained(cls, model, **kwargs):
+            calls["scheduler"] = {"model": model, **kwargs}
+            return cls()
+
+    class FakePipeline:
+        @classmethod
+        def from_pretrained(cls, model, **kwargs):
+            calls["pipeline"] = {"model": model, **kwargs}
+            return cls()
+
+        def to(self, device):
+            calls["device"] = {"device": device}
+            return self
+
+    torch = type("FakeTorch", (), {"float16": "float16", "float32": "float32"})
+    diffusers = type(
+        "FakeDiffusers",
+        (),
+        {
+            "DPMSolverMultistepScheduler": FakeScheduler,
+            "StableDiffusionPipeline": FakePipeline,
+        },
+    )
+    monkeypatch.setitem(sys.modules, "torch", torch)
+    monkeypatch.setitem(sys.modules, "diffusers", diffusers)
+
+    _load_diffusion(DEFAULT_MODEL, "cpu", False, 512)
+
+    assert calls["scheduler"]["revision"] == DEFAULT_MODEL_REVISION
+    assert calls["pipeline"]["revision"] == DEFAULT_MODEL_REVISION
+    assert calls["pipeline"]["trust_remote_code"] is False
+    assert calls["pipeline"]["use_safetensors"] is True
+
 
 FAKE_PIL = """\
 class Image:
@@ -224,7 +275,7 @@ def test_cmd_detect_with_fake_upstream(
     monkeypatch.setattr(
         mod,
         "_load_diffusion",
-        lambda model, device, offline, size: (object(), object()),
+        lambda model, device, offline, size, revision=None: (object(), object()),
     )
     args = _build_args(mod, "detect", path=str(img))
     rc = mod._cmd_detect(args, upstream, "TR")
@@ -245,7 +296,7 @@ def test_cmd_detect_p_value(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         mod,
         "_load_diffusion",
-        lambda model, device, offline, size: (object(), object()),
+        lambda model, device, offline, size, revision=None: (object(), object()),
     )
     args = _build_args(mod, "detect", path=str(img), detector_type="p_value")
     assert mod._cmd_detect(args, upstream, "tr") == 0
@@ -261,7 +312,7 @@ def test_cmd_watermark_with_fake_upstream(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.setattr(
         mod,
         "_load_diffusion",
-        lambda model, device, offline, size: (object(), object()),
+        lambda model, device, offline, size, revision=None: (object(), object()),
     )
     args = _build_args(
         mod,
@@ -285,7 +336,7 @@ def test_cmd_purify_with_fake_upstream(tmp_path: Path, monkeypatch: pytest.Monke
     monkeypatch.setattr(
         mod,
         "_load_diffusion",
-        lambda model, device, offline, size: (object(), object()),
+        lambda model, device, offline, size, revision=None: (object(), object()),
     )
     args = _build_args(mod, "purify", path=str(img), output=str(out))
     assert mod._cmd_purify(args, upstream) == 0

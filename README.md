@@ -374,7 +374,7 @@ curl -s -X POST "$WM/clean" -H 'Content-Type: application/json' \
   -d "{\"file\": \"$(base64 < notes.md | tr -d '\n')\", \"name\": \"notes.md\"}"
 ```
 
-The service routes by filename extension then magic bytes, so text / image / container are auto-detected. Set `WATERMARKS_SERVER_API_KEY` to require `Authorization: Bearer <key>` on every request. Loopback-only bind by default (`--host` to override); intended for a trusted network.
+The service routes by filename extension then magic bytes, so text / image / container are auto-detected. Set `WATERMARKS_SERVER_API_KEY` to require `Authorization: Bearer <key>` on every request. Loopback-only bind is the default; a non-loopback `--host` is refused unless an API key is configured.
 
 ### Watermark detection (`/detect` and `detect_before` / `detect_after`)
 
@@ -443,13 +443,14 @@ docker run --rm -v "$(pwd):/data" watermarks-remover \
 Whole-infra bring-up:
 
 ```bash
+cp .env.example .env                       # replace WATERMARKS_SERVER_API_KEY
 docker compose up -d                         # core HTTP service only
 docker compose --profile harness up -d       # + markllm / markdiffusion / wr-synthid-text sidecar
 docker compose --profile heavy up -d         # + ctrlregen / synthid (local builds)
 docker compose --profile harness --profile heavy up -d   # all services
 ```
 
-The compose stack maps the core service to `127.0.0.1:8765`. Persistent services run as background daemons (`wr-core` and the `wr-synthid-text` sidecar under the harness profile). The remaining harness/heavy services are one-shot CLIs — invoke with `docker compose run --rm <service> …` when you need verification or pixel work.
+The compose stack requires `WATERMARKS_SERVER_API_KEY`, maps the core service to `127.0.0.1:8765`, and reuses that key for sidecars unless a sidecar-specific key is set. Every service runs with a read-only root, all Linux capabilities dropped, and `no-new-privileges`. Persistent services run as background daemons (`wr-core` and the `wr-synthid-text` sidecar under the harness profile). The remaining harness/heavy services are one-shot CLIs — invoke with `docker compose run --rm <service> …` when you need verification or pixel work.
 
 Validate the running stack (exit code only, no output on success):
 
@@ -479,7 +480,7 @@ space before `; : ! ?`) should pass `"options": {"normalize_spaces": false}`, th
 HTTP equivalent of `clean_text.py --no-normalize-spaces`. Invisible carriers are
 still removed; only the space rewrite is skipped.
 
-Everything else is optional and lives in a `.env` file at the repo root. `docker compose` **auto-loads `.env`** and interpolates the `${VAR}` references in `compose.yaml` from it (shell exports win over `.env` if both are set).
+Apart from the required compose API key, configuration is optional and lives in a `.env` file at the repo root. `docker compose` **auto-loads `.env`** and interpolates the `${VAR}` references in `compose.yaml` from it (shell exports win over `.env` if both are set).
 
 ```bash
 cp .env.example .env       # then edit
@@ -494,12 +495,12 @@ set -a; . ./.env; set +a; python3 service/scripts/rewrite_text.py /tmp/x.txt -o 
 
 | Var | Reaches | Purpose |
 | --- | --- | --- |
-| `WATERMARKS_SERVER_API_KEY` | `wr-core` (via compose `environment`) | Require `Authorization: Bearer <key>` on the HTTP API |
+| `WATERMARKS_SERVER_API_KEY` | `wr-core` (via compose `environment`) | Required by compose; require `Authorization: Bearer <key>` on the HTTP API |
 | `WATERMARKS_GEMINI_*` | — | Removed Aug 2026: Google retired SynthID text watermarking on the API (see `vendor-notes.md`) |
 | `WATERMARKS_SYNTHID_SCORER_URL` | `wr-core` | Point core at the `wr-synthid-score` sidecar for SynthID image scoring (e.g. `http://wr-synthid-score:8766` under the heavy profile) |
-| `WATERMARKS_SYNTHID_SCORER_API_KEY` | `wr-core` + `wr-synthid-score` | Shared bearer key for the scorer sidecar (empty = no auth) |
+| `WATERMARKS_SYNTHID_SCORER_API_KEY` | `wr-core` + `wr-synthid-score` | Shared bearer key for the scorer sidecar (defaults to `WATERMARKS_SERVER_API_KEY`) |
 | `WATERMARKS_SYNTHID_TEXT_URL` | `wr-core` | Point core at the `wr-synthid-text` sidecar for SynthID text watermarking (e.g. `http://wr-synthid-text:8767` under the harness profile) |
-| `WATERMARKS_SYNTHID_TEXT_API_KEY` | `wr-core` + `wr-synthid-text` | Shared bearer key for the text watermark sidecar (empty = no auth) |
+| `WATERMARKS_SYNTHID_TEXT_API_KEY` | `wr-core` + `wr-synthid-text` | Shared bearer key for the text watermark sidecar (defaults to `WATERMARKS_SERVER_API_KEY`) |
 | `WATERMARKS_SYNTHID_TEXT_TIMEOUT` | `wr-core` | Seconds to wait for the `wr-synthid-text` sidecar (default 120) |
 | `WATERMARKS_MARKLLM_SCHEME` | `text_detectors.py` (host) | MarkLLM scheme for `/detect`: `kgw` (default) / `synthid` |
 | `HF_TOKEN` | harness/heavy services | Hugging Face token for gated models |
@@ -604,12 +605,10 @@ maintained reimplementation of the ICLR 2025
 
 The backend is **not bundled** and ships no LICENSE file, so it is treated as
 all-rights-reserved: it is cloned at a pinned commit and loaded at runtime.
-Its research-era dependency pins (`requirements-ctrlregen.txt` — e.g.
-`transformers==4.37.2`, `diffusers==0.27.2`) carry published advisories and
-are intentionally not current, so they are only ever installed inside the
-dedicated venv this script creates and never into the main service image;
-`setup_ctrlregen.sh` also re-verifies the pinned commit on existing
-checkouts, not just fresh clones.
+Its runtime is isolated in a dedicated venv and pins patched releases,
+including `transformers==5.22.1`, `diffusers==0.42.1`, and `torch==2.13.0.*`.
+The upstream checkout remains commit-pinned; `setup_ctrlregen.sh` also
+re-verifies that commit on existing checkouts, not just fresh clones.
 
 ### Bootstrap
 
@@ -926,10 +925,12 @@ a *generative watermarking* toolkit for latent diffusion models (it embeds marks
    StableSignature / SynthID-media).
 
 The backend is **not bundled**. `setup_markdiffusion.sh` creates a venv and
-installs `markdiffusion==1.0.2` from PyPI (pinned), with torch installed from
-the right platform index; `--checkout` installs an editable clone at a pinned
-commit instead. The Stable Diffusion model (default
-`huanzi05/stable-diffusion-2-1-base`) downloads from Hugging Face on first run.
+installs `markdiffusion==1.0.2` from PyPI (pinned) without its vulnerable
+`torch<2.11` / `setuptools<81` metadata constraints, then supplies the audited
+runtime from `requirements-markdiffusion.txt`; `--checkout` installs an
+editable clone at a pinned commit the same way. The Stable Diffusion model
+(default `huanzi05/stable-diffusion-2-1-base`) downloads from Hugging Face on
+first run at an immutable commit.
 
 ```bash
 SCRIPTS=service/scripts
@@ -962,9 +963,11 @@ MARKDIFFUSION_DIR=~/markdiffusion \
     -o shot.cleaned.png --remove-pixel diffusion
 ```
 
-Hardening knobs mirror the MarkLLM harness: `--offline` loads the model from
-the Hugging Face cache only (zero network egress, no remote code), `HF_TOKEN`
-is env-only (never argv), algorithm configs are capped at 1 MiB, and the
+Hardening knobs mirror the MarkLLM harness: remote code is always disabled,
+Safetensors is required, the default model is commit-pinned, and a custom
+remote model requires `--model-revision COMMIT`. `--offline` additionally
+loads from the Hugging Face cache only (zero network egress), `HF_TOKEN` is
+env-only (never argv), algorithm configs are capped at 1 MiB, and the
 subprocess gets the same higher resource caps as CtrlRegen.
 
 ### Docker

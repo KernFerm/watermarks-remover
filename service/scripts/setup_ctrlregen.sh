@@ -104,21 +104,23 @@ echo "Installing Python dependencies"
 # Pin pip itself (unpinned --upgrade pip was a supply-chain drift point).
 "$DIR/.venv/bin/python" -m pip install --upgrade "pip==26.2.1"
 
-# Install torch with the right platform index before the other pinned deps.
+# Install the patched torch/torchvision pair with the right platform index
+# before the other pinned deps. The requirements file repeats these pins so
+# pip-audit covers them and the later install cannot replace the selected build.
 if command -v nvidia-smi >/dev/null 2>&1; then
   cuda="$(nvidia-smi 2>/dev/null | sed -n 's/.*CUDA Version: \([0-9]*\.[0-9]*\).*/\1/p' | head -1)"
   if [[ -n "$cuda" ]]; then
     tag="cu${cuda/./}"
     index="https://download.pytorch.org/whl/$tag"
     echo "NVIDIA GPU detected (CUDA $cuda); installing torch from $index"
-    "$DIR/.venv/bin/python" -m pip install torch --index-url "$index"
+    "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0" --index-url "$index"
   else
     echo "nvidia-smi present but no CUDA version found; installing default torch"
-    "$DIR/.venv/bin/python" -m pip install torch
+    "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0"
   fi
 else
   echo "No NVIDIA GPU detected; installing default torch (CPU/MPS)"
-  "$DIR/.venv/bin/python" -m pip install torch
+  "$DIR/.venv/bin/python" -m pip install "torch==2.13.0.*" "torchvision==0.28.0"
 fi
 
 "$DIR/.venv/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-ctrlregen.txt"
