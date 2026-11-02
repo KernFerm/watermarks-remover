@@ -24,7 +24,8 @@ def test_optional_image_backends_pin_patched_runtimes() -> None:
     }
 
     for requirements in (ctrlregen, markdiffusion):
-        assert "torch==2.13.0.*" in requirements
+        assert "torch==2.15.0.*" in requirements
+        assert "torchvision==0.29.2" in requirements
         assert "setuptools==84.1.0" in requirements
         assert "diffusers==0.42.1" in requirements
         assert "transformers==5.22.1" in requirements

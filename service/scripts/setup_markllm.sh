@@ -107,14 +107,14 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     tag="cu${cuda/./}"
     index="https://download.pytorch.org/whl/$tag"
     echo "NVIDIA GPU detected (CUDA $cuda); installing torch from $index"
-    "$DIR/.venv/bin/python" -m pip install torch --index-url "$index"
+    "$DIR/.venv/bin/python" -m pip install "torch==2.15.0.*" --index-url "$index"
   else
     echo "nvidia-smi present but no CUDA version found; installing default torch"
-    "$DIR/.venv/bin/python" -m pip install torch
+    "$DIR/.venv/bin/python" -m pip install "torch==2.15.0.*"
   fi
 else
   echo "No NVIDIA GPU detected; installing default torch (CPU/MPS)"
-  "$DIR/.venv/bin/python" -m pip install torch
+  "$DIR/.venv/bin/python" -m pip install "torch==2.15.0.*"
 fi
 
 "$DIR/.venv/bin/python" -m pip install -r "$SCRIPT_DIR/requirements-markllm.txt"

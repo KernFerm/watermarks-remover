@@ -47,7 +47,7 @@ COPY scripts/common.py /app/common.py
 # resolve against it. Model weights are downloaded at runtime, not build time.
 RUN python3 -m pip install --no-cache-dir "pip==26.2.1" \
     && python3 -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-        "torch==2.13.0.*" "torchvision==0.28.0" \
+        "torch==2.15.0.*" "torchvision==0.29.2" \
     && python3 -m pip install --no-cache-dir -r /app/requirements-ctrlregen.txt
 
 # Unprivileged runtime user. The remover reads input files from a mounted

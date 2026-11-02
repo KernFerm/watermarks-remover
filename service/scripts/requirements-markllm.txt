@@ -8,28 +8,26 @@
 # bumping and keep the pinned upstream checkout in setup_markllm.sh /
 # Dockerfile.markllm in sync with the code these versions are tested against.
 #
-# Pillow is pinned to 12.3.0 (same as requirements-synthid-scorer.txt) for
-# the 24 known CVEs fixed after the upstream 9.4.0 pin.
-# torch is pinned with a wildcard so a platform wheel (e.g. 2.13.0+cpu from
-# the CPU index, or 2.13.0+cuXXX from a GPU index) satisfies it. Installers
+# Pillow is pinned to 13.0.0 (same as requirements-synthid-scorer.txt) for
+# the known CVEs fixed after the upstream 9.4.0 pin.
+# torch is pinned with a wildcard so a platform wheel (e.g. 2.15.0+cpu from
+# the CPU index, or 2.15.0+cuXXX from a GPU index) satisfies it. Installers
 # pick the right index first (Dockerfile.markllm: CPU; setup_markllm.sh:
 # GPU when nvidia-smi is present), then this file's remaining pins resolve
 # against the already-installed torch.
-torch==2.14.0.*
-transformers==5.15.0
-# transformers 5.15.0 caps tokenizers at <=0.23.0; there is no 0.23.0
-# release (0.22.2 -> 0.23.1), so the highest compatible pin is 0.22.2.
-tokenizers==0.22.2
-datasets==5.0.1
+torch==2.15.0.*
+transformers==5.22.1
+tokenizers==0.23.3
+datasets==5.1.0
 accelerate==1.15.0
 SentencePiece==0.2.2
-nltk==3.10.3
+nltk==3.10.4
 jieba==0.42.1
 tqdm==4.70.1
 matplotlib==3.11.2
 Cython==3.3.0
-numpy==2.5.3
+numpy==2.5.4
 scipy==1.18.1
 scikit-learn==1.9.1
-huggingface_hub==1.27.0
+huggingface_hub==2.4.0
 Pillow==13.0.0

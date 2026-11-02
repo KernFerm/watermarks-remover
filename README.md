@@ -606,7 +606,7 @@ maintained reimplementation of the ICLR 2025
 The backend is **not bundled** and ships no LICENSE file, so it is treated as
 all-rights-reserved: it is cloned at a pinned commit and loaded at runtime.
 Its runtime is isolated in a dedicated venv and pins patched releases,
-including `transformers==5.22.1`, `diffusers==0.42.1`, and `torch==2.13.0.*`.
+including `transformers==5.22.1`, `diffusers==0.42.1`, and `torch==2.15.0.*`.
 The upstream checkout remains commit-pinned; `setup_ctrlregen.sh` also
 re-verifies that commit on existing checkouts, not just fresh clones.
 
