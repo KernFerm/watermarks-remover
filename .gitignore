@@ -26,6 +26,7 @@
 !/.dockerignore
 !/.env.example
 !/.gitignore
+!/.mailmap
 !/.pre-commit-hooks.yaml
 !/CODE_OF_CONDUCT.md
 !/compose-check.sh
