@@ -3,7 +3,7 @@
 # Installers therefore install the pinned package with --no-deps and resolve
 # this audited, exact runtime instead.
 setuptools==84.1.0
-torch==2.13.0.*
+torch==2.15.0.*
 torchvision==0.28.0
 numpy==2.4.6
 Pillow==13.0.0

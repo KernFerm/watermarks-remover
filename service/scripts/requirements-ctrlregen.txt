@@ -7,7 +7,7 @@
 # the pins here too so audits cover the complete runtime and pip cannot replace
 # the selected build.
 setuptools==84.1.0
-torch==2.13.0.*
+torch==2.15.0.*
 torchvision==0.28.0
 numpy==2.4.6
 diffusers==0.42.1
