@@ -10,7 +10,7 @@ Pillow==13.0.0
 opencv-python-headless==5.0.0.93
 requests==2.33.0
 tqdm==4.70.1
-scipy==1.17.1
+scipy==1.18.1
 matplotlib==3.11.2
 diffusers==0.42.1
 transformers==5.22.1
