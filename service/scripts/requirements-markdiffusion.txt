@@ -21,4 +21,4 @@ datasets==5.1.0
 sentence-transformers==6.2.0
 joblib==1.5.2
 pandas==2.3.3
-pycryptodome==3.23.0
+pycryptodome==4.3.0
